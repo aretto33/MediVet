@@ -48,23 +48,33 @@ export function LoginView({ onLogin, onBack }: LoginViewProps) {
 
   // Metodo login() segun diagrama UML de la clase Usuario
   const login = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
+  e.preventDefault()
+  setError('')
+  setIsLoading(true)
 
-    await new Promise(resolve => setTimeout(resolve, 800))
+  try {
+    // 1. Enviamos la petición a tu servidor Flask
+    const response = await fetch('http://localhost:5000/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, contraseña })
+    })
 
-    const user = usuarios.find(
-      u => u.email === email && u.contraseña === contraseña
-    )
+    const data = await response.json()
 
-    if (user) {
-      onLogin(user)
+    if (response.ok) {
+      // 2. Si Flask dice que es correcto, entramos al sistema
+      onLogin(data.user) 
     } else {
-      setError('Credenciales invalidas. Verifica tu email y contraseña.')
+      // 3. Si las credenciales no existen en MariaDB
+      setError(data.message || 'Credenciales inválidas.')
     }
+  } catch (err) {
+    setError('No se pudo conectar con el servidor de Flask.')
+  } finally {
     setIsLoading(false)
   }
+  } 
 
   // Registro de nuevo usuario
   const registrarUsuario = async (e: React.FormEvent) => {
@@ -113,9 +123,50 @@ export function LoginView({ onLogin, onBack }: LoginViewProps) {
       Apellidos
     }
 
+    // ... (mantén las validaciones de contraseña que ya tienes arriba)
+
+// Preparamos el objeto con TODO lo que capturó el formulario
+const datosRegistro = {
+  nombre_usuario,
+  email,
+  contraseña,
+  role_id: selectedRoleId,
+  Nombre,
+  Apellidos,
+  telefono: parseInt(telefono),
+  // Datos extra si es veterinario
+  cedula_prof: parseInt(cedula_prof) || null,
+  direcc_consultorio,
+  Especialidad
+}
+
+try {
+  const response = await fetch('http://localhost:5000/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datosRegistro)
+  })
+
+  if (response.ok) {
+    setSuccess('Registro exitoso en la base de datos de Veterinaria.')
+    setIsLoading(false)
+    
+    setTimeout(() => {
+      resetForm()
+      setViewMode('login')
+    }, 2000)
+  } else {
+    const errorData = await response.json()
+    setError(errorData.message || 'Error al registrar en MariaDB')
+  }
+} catch (err) {
+  setError('Error de conexión con el backend.')
+} finally {
+  setIsLoading(false)
+}
     // Agregar a los arrays (simulando base de datos)
-    usuarios.push(newUser)
-    perfiles.push(newPerfil)
+   // usuarios.push(newUser)
+   // perfiles.push(newPerfil)
 
     // Si es veterinario, crear registro de Veterinario
     if (selectedRoleId === 2) {
